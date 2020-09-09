@@ -97,31 +97,27 @@ func detectFaceByModel(request: VNRequest, sourceImage: CIImage, error: Error?) 
     var originSize: (w: CGFloat, h: CGFloat)? = (CGFloat(1544), CGFloat(925))
     // let originSize = 1544 × 925
     if let detectedFace = result.faces.first, detectedFace.confidence > 0.8, let originSize = originSize {
-        print("[detectedFace]", "detected face bounding box face rect: \(detectedFace.detectRect)")
+        print("[detectedFace]", "detected face bounding box face rect: \(detectedFace.detectRect) \(detectedFace.confidence)")
         // convert face rect in image
         let adjustedWidth = CGFloat(detectedFace.detectRect[2]) / 640 * originSize.w
         let adjustedHeight = CGFloat(detectedFace.detectRect[3]) / 640 * originSize.h
         
         let adjustedX = (CGFloat(detectedFace.detectRect[0]) / 640 * originSize.w) - (adjustedWidth/2)
         let adjustedY = (CGFloat(detectedFace.detectRect[1]) / 640 * originSize.h) - (adjustedHeight/2)
-        let adjustedXMirrored = originSize.w - (CGFloat(detectedFace.detectRect[0]) / 640 * originSize.w) - (adjustedWidth/2)
-        let adjustedYMirrored = originSize.h - (CGFloat(detectedFace.detectRect[1]) / 640 * originSize.h) - (adjustedHeight/2)
         
         let faceRect = CGRect(x: adjustedX, y: adjustedY, width: adjustedWidth, height: adjustedHeight)
 
-        /// Start - Change orientation when support landscape left/right
-        let side = min(adjustedWidth, adjustedHeight)
-        var midX: CGFloat = 0.0
-        var midY: CGFloat = 0.0
-        midX = adjustedX + adjustedWidth / 2
-        midY = adjustedY + adjustedHeight / 2
-        let faceSquareX = min(max(0, midX - side / 2), originSize.w - side)
-        let faceSquareY = min(max(0, midY - side / 2), originSize.h - side)
-        var fixCropFrame: CGRect = CGRect.zero
-        fixCropFrame = CGRect(x: faceSquareY, y: faceSquareX, width: side, height: side)
-        print("[fixCropFrame]", "detected face bounding box face rect: \(fixCropFrame)")
-        let croppedFace = sourceImage.cropped(to: fixCropFrame)
+        let croppedFace = sourceImage.cropped(to: faceRect)
         print("[croppedFace]", "detected face bounding box face rect: \(croppedFace)")
+        let context = CIContext(options: nil)
+        let colorSpace = croppedFace.colorSpace
+        let jpeg = context.jpegRepresentation(of: croppedFace, colorSpace: colorSpace!, options: [:])
+        let croppedURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame_cropped.jpg")!
+        do {
+          try jpeg?.write(to: croppedURL)
+        } catch {
+          print("error write to jpeg")
+        }
         checkEmotion(for: croppedFace)
     }
 }
