@@ -169,7 +169,8 @@ func showModel() {
       print("error here")
   }
   
-  var originSize: (w: CGFloat, h: CGFloat)? = (CGFloat(1544), CGFloat(925))
+  var originSize: (w: CGFloat, h: CGFloat)? = (sourceImage!.extent.width, sourceImage!.extent.height)
+  print("originSize: \(originSize)")
 
   // guard let faceBuffer = inputImage.pixelBuffer(width: 640, height: 640) else { return }
   do {
