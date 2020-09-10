@@ -52,9 +52,12 @@ func showUsage() {
   print(
     """
     Usage:
-      aperture <options>
-      aperture list-screens
-      aperture list-audio-devices
+      Example <options>
+      Example list-screens
+      Example list-audio-devices
+      Example record
+      Example record-emotion
+      Example show-models
     """
   )
 }
@@ -64,18 +67,24 @@ func checkEmotion(for image: CIImage) {
     do {
         if let model: VNCoreMLModel = coreFaceEmotionMLModel {
             let request = VNCoreMLRequest(model: model, completionHandler: { request, error in
-                guard let observations = request.results as? [VNCoreMLFeatureValueObservation] else { fatalError("Unexpected result type from VNCoreMLRequest.") }
-                guard let multiArray = observations[0].featureValue.multiArrayValue else { fatalError("Can't get best result.") }
+                guard let observations = request.results as? [VNCoreMLFeatureValueObservation]
+                  else { fatalError("Unexpected result type from VNCoreMLRequest.") }
+                guard let multiArray = observations[0].featureValue.multiArrayValue
+                  else { fatalError("Can't get best result.") }
+                
                 let featurePointerFloat = UnsafePointer<Float32>(OpaquePointer(multiArray.dataPointer))
                 let resultArray = Array(UnsafeBufferPointer(start: featurePointerFloat, count: 5))
-                let result = resultArray.map{ round(100 * $0) / 100 }
+                let result = resultArray.map { round(100 * $0) / 100 }
+                
                 print(result)
                 // DispatchQueue.main.async {
                 //     self.emotionAnalyze.adopt(data: result)
                 //     self.updateResult()
                 // }
             })
-            let handler = VNImageRequestHandler(ciImage: image, options: [:])
+            let targetSize = NSSize(width:60, height:60)
+            let resizedImage = resizeImg(sourceImage: image, targetSize: targetSize)!
+            let handler = VNImageRequestHandler(ciImage: resizedImage, options: [:])
             try handler.perform([request])
         }
     } catch {
@@ -83,7 +92,7 @@ func checkEmotion(for image: CIImage) {
     }
 }
 
-func detectFaceByModel(request: VNRequest, sourceImage: CIImage, error: Error?) {
+func detectFaceByModel(request: VNRequest, sourceImage: CIImage, resizedImage: CIImage, originSize: (w: CGFloat, h: CGFloat)?, error: Error?) {
     guard let observations = request.results as? [VNCoreMLFeatureValueObservation] else {
         return
     }
@@ -94,10 +103,13 @@ func detectFaceByModel(request: VNRequest, sourceImage: CIImage, error: Error?) 
     // let hasManyFaces = DEBUG_DRAW_BOX_PRINT_LOG ? true : (result.faces.count > 1)
     // if has detected face
     // 1544 × 925
-    var originSize: (w: CGFloat, h: CGFloat)? = (CGFloat(1544), CGFloat(925))
+    // var originSize: (w: CGFloat, h: CGFloat)? = (CGFloat(1544), CGFloat(925))
     // let originSize = 1544 × 925
     if let detectedFace = result.faces.first, detectedFace.confidence > 0.8, let originSize = originSize {
         print("[detectedFace]", "detected face bounding box face rect: \(detectedFace.detectRect) \(detectedFace.confidence)")
+      
+//        let croppedResizedFace = resizedImage.cropped(to: detectedFace.detectRect)
+        
         // convert face rect in image
         let adjustedWidth = CGFloat(detectedFace.detectRect[2]) / 640 * originSize.w
         let adjustedHeight = CGFloat(detectedFace.detectRect[3]) / 640 * originSize.h
@@ -122,11 +134,11 @@ func detectFaceByModel(request: VNRequest, sourceImage: CIImage, error: Error?) 
     }
 }
 
-func resizeImg(sourceImage: CIImage?) -> CIImage? {
+func resizeImg(sourceImage: CIImage?, targetSize: NSSize) -> CIImage? {
   let resizeFilter = CIFilter(name:"CILanczosScaleTransform")!
 
   // Desired output size
-  let targetSize = NSSize(width:640, height:640)
+  // let targetSize = NSSize(width:640, height:640)
 
   // Compute scale and corrective aspect ratio
   let scale = targetSize.height / (sourceImage?.extent.height)!
@@ -147,7 +159,8 @@ func showModel() {
   let context = CIContext()
   let inputURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame.png")!
   let sourceImage = CIImage(contentsOf: inputURL)
-  let outputImage = resizeImg(sourceImage: sourceImage)!
+  let targetSize = NSSize(width:640, height:640)
+  let resizedImage = resizeImg(sourceImage: sourceImage, targetSize: targetSize)!
 
   do {
       coreModel = try VNCoreMLModel(for: model_plus_quantization().model)
@@ -155,24 +168,110 @@ func showModel() {
   } catch {
       print("error here")
   }
+  
+  var originSize: (w: CGFloat, h: CGFloat)? = (CGFloat(1544), CGFloat(925))
 
   // guard let faceBuffer = inputImage.pixelBuffer(width: 640, height: 640) else { return }
   do {
       if let model: VNCoreMLModel = coreModel {
           let detectFaceRequest = VNCoreMLRequest(model: model) { (request, error) in
               print("detectFaceRequest result")
-              detectFaceByModel(request: request, sourceImage: sourceImage!, error: error)
+              detectFaceByModel(request: request, sourceImage: sourceImage!, resizedImage: resizedImage, originSize: originSize, error: error)
               // self.checkEmotionQueue.async {
               //     self.detectFaceByModel(request: request, image: visionImage, error: error, srcBuffer: srcBuffer)
               // }
           }
           //log(label: "[d capture]", "start detect image ")
-          try faceSequenceHandler.perform([detectFaceRequest], on: outputImage)
+          try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
       }
   }
   catch {
       print("error coreModel handle")
   }
+}
+
+func recordEmotion() throws {
+  print("recordEmotion")
+  let destination = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/recording.mp4")!
+  
+  var faceSequenceHandler = VNSequenceRequestHandler()
+  do {
+      coreModel = try VNCoreMLModel(for: model_plus_quantization().model)
+      coreFaceEmotionMLModel = try VNCoreMLModel(for: emotion_ver2().model)
+  } catch {
+      print("error here")
+  }
+  
+  
+  let recorder = try ApertureFrame(
+    destination: destination
+  )
+
+  recorder.onStart = {
+    print("R")
+  }
+
+  recorder.onFinish = {
+    print($0, to: .standardError)
+    exit(0)
+  }
+  
+  recorder.onCapture = { (captureOutput, sampleBuffer) in
+    guard let srcBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+        return
+    }
+    let originSize: (w: CGFloat, h: CGFloat) = (CGFloat(CVPixelBufferGetWidth(srcBuffer)), CGFloat(CVPixelBufferGetHeight(srcBuffer)))
+    print("originSize: width=\(originSize.w), height=\(originSize.h)")
+    let sourceImage = CIImage(cvPixelBuffer: srcBuffer)
+    let context = CIContext(options: nil)
+    let colorSpace = sourceImage.colorSpace
+    let jpeg = context.jpegRepresentation(of: sourceImage, colorSpace: colorSpace!, options: [:])
+    let sourceURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame_source.jpg")!
+    do {
+      try jpeg?.write(to: sourceURL)
+    } catch {
+      print("error write to jpeg")
+    }
+    let targetSize = NSSize(width:640, height:640)
+    let resizedImage = resizeImg(sourceImage: sourceImage, targetSize: targetSize)!
+    
+    let jpegResized = context.jpegRepresentation(of: resizedImage, colorSpace: colorSpace!, options: [:])
+    let resizedURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame_source_resized.jpg")!
+    do {
+      try jpegResized?.write(to: resizedURL)
+    } catch {
+      print("error write to jpeg")
+    }
+    
+    do {
+        if let model: VNCoreMLModel = coreModel {
+            let detectFaceRequest = VNCoreMLRequest(model: model) { (request, error) in
+                print("detectFaceRequest result")
+                detectFaceByModel(request: request, sourceImage: sourceImage, resizedImage: resizedImage, originSize: originSize, error: error)
+                // self.checkEmotionQueue.async {
+                //     self.detectFaceByModel(request: request, image: visionImage, error: error, srcBuffer: srcBuffer)
+                // }
+            }
+            //log(label: "[d capture]", "start detect image ")
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+        }
+    }
+    catch {
+        print("error coreModel handle")
+    }
+
+  }
+
+  CLI.onExit = {
+    recorder.stop()
+    // Do not call `exit()` here as the video is not always done
+    // saving at this point and will be corrupted randomly
+  }
+
+  recorder.start()
+
+  setbuf(__stdoutp, nil)
+  RunLoop.main.run()
 }
 
 switch CLI.arguments.first {
@@ -185,6 +284,8 @@ case "list-audio-devices":
   exit(0)
 case "record":
   try record()
+case "record-emotion":
+  try recordEmotion()
 case "show-model":
   try showModel()
   exit(0)

@@ -19,6 +19,8 @@ public final class ApertureFrame: NSObject {
 	public var onFinish: ((Swift.Error?) -> Void)?
 	public var onPause: (() -> Void)?
 	public var onResume: (() -> Void)?
+  
+  public var onCapture: ((AVCaptureOutput, CMSampleBuffer) -> Void)?
 
 	private var recordingQueue = DispatchQueue(label: "recording.queue")
 	// public var isRecording: Bool { output.isRecording }
@@ -157,6 +159,7 @@ public final class ApertureFrame: NSObject {
 	public func start() {
 		session.startRunning()
 		output.setSampleBufferDelegate(self, queue: self.recordingQueue)
+    output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
 		// output.startRecording(to: destination, recordingDelegate: self)
 	}
 
@@ -181,6 +184,7 @@ public final class ApertureFrame: NSObject {
 
 extension ApertureFrame: AVCaptureVideoDataOutputSampleBufferDelegate {
 	public func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from captureConnection: AVCaptureConnection) {
+    onCapture?(captureOutput, sampleBuffer)
 		print("captureOutput didOutput")
 	}
 
