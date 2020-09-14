@@ -186,7 +186,7 @@ public final class ApertureFrame: NSObject {
 extension ApertureFrame: AVCaptureVideoDataOutputSampleBufferDelegate {
 	public func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from captureConnection: AVCaptureConnection) {
     onCapture?(captureOutput, sampleBuffer)
-		print("captureOutput didOutput")
+//		print("captureOutput didOutput")
 	}
 
 	public func captureOutput(_ captureOutput: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from captureConnection: AVCaptureConnection) {
