@@ -1,10 +1,10 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.3
 import PackageDescription
 
 let package = Package(
 	name: "Aperture",
 	platforms: [
-		.macOS(.v10_15)
+		.macOS(.v11)
 	],
 	products: [
 		.library(
