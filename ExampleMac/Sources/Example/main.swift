@@ -10,7 +10,7 @@ var coreModel: VNCoreMLModel?
 let outputcsvURL = URL(string: "file:///Users/nghia/workspace/github.com/chnghia/Aperture/ExampleMac/output.csv")!
 var emotionAnalyze = EmotionAnalyze()
 var validEmotion:[Float32] = [Float32]()
-var startTime: Double = 0.0
+var startTimes: [Double] = []
 
 func record() throws {
     // let options: Options = try CLI.arguments.first!.jsonDecoded()
@@ -103,9 +103,9 @@ func checkEmotion(for image: CIImage) {
                 let resultArray = Array(UnsafeBufferPointer(start: featurePointerFloat, count: 5))
                 let result = resultArray.map { round(100 * $0) / 100 }
                 
-                let endTime =  NSDate().timeIntervalSince1970 * 1000
+                let elapsed = NSDate().timeIntervalSince1970 - startTimes.remove(at: 0)
                 
-                print("execute time: \(endTime - startTime)", to: .standardOutput)
+                print("execute time: \(elapsed) FPS: \(1/elapsed)", to: .standardOutput)
                 
                 emotionAnalyze.adopt(data: result)
                 validEmotion = emotionAnalyze.getMostAppearAverage()
@@ -202,7 +202,7 @@ func showModel() {
     let sourceImage = CIImage(contentsOf: inputURL)
     let targetSize = NSSize(width:640, height:640)
     let resizedImage = resizeImg(sourceImage: sourceImage, targetSize: targetSize)!
-    startTime =  NSDate().timeIntervalSince1970 * 1000
+    // startTime =  NSDate().timeIntervalSince1970
     
     
     do {
@@ -220,50 +220,40 @@ func showModel() {
             let detectFaceRequest = VNCoreMLRequest(model: model) { (request, error) in
                 detectFaceByModel(request: request, sourceImage: sourceImage!, resizedImage: resizedImage, originSize: originSize, error: error)
             }
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
+            try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
+            startTimes.append(NSDate().timeIntervalSince1970)
             try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
         }
     }
     catch {
-        print("error coreModel handle", to: .standardError)
+        print("error coreModel handle", to: .standardOutput)
     }
 }
 
-extension String {
-    func appendLineToURL(fileURL: URL) throws {
-        try (self + "\n").appendToURL(fileURL: fileURL)
-    }
-    
-    func appendToURL(fileURL: URL) throws {
-        let data = self.data(using: String.Encoding.utf8)!
-        try data.append(fileURL: fileURL)
-    }
-}
-
-extension Data {
-    func append(fileURL: URL) throws {
-        if let fileHandle = FileHandle(forWritingAtPath: fileURL.path) {
-            defer {
-                fileHandle.closeFile()
-            }
-            fileHandle.seekToEndOfFile()
-            fileHandle.write(self)
-        }
-        else {
-            try write(to: fileURL, options: .atomic)
-        }
-    }
-}
 
 func recordEmotion() throws {
-    print("recordEmotion", to: .standardError)
+    print("recordEmotion", to: .standardOutput)
     
-    let destination = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/recording.mp4")!
+    let destination = URL(string: "file:///Users/nghia/workspace/github.com/chnghia/Aperture/ExampleMac/recording.mp4")!
     
     var csvString = "\("neutral"),\("happy"),\("sad"),\("angry"),\("surprised"),\("date")\n"
     do {
         try csvString.write(to: outputcsvURL, atomically: true, encoding: .utf8)
     } catch {
-        print("error creating file")
+        print("error creating file", to: .standardOutput)
     }
     
     var faceSequenceHandler = VNSequenceRequestHandler()
@@ -271,13 +261,14 @@ func recordEmotion() throws {
         coreModel = try VNCoreMLModel(for: model_plus_quantization().model)
         coreFaceEmotionMLModel = try VNCoreMLModel(for: emotion_ver2().model)
     } catch {
-        print("error here")
+        print("error here", to: .standardError)
     }
     
     
     let recorder = try ApertureFrame(
         destination: destination
     )
+    print("ApertureFrame initial", to: .standardOutput)
     
     recorder.onStart = {
         print("R")
@@ -296,26 +287,26 @@ func recordEmotion() throws {
         //    print("originSize: width=\(originSize.w), height=\(originSize.h)")
         let sourceImage = CIImage(cvPixelBuffer: srcBuffer)
         
-        //    let context = CIContext(options: nil)
-        //    let colorSpace = sourceImage.colorSpace
-        //    let jpeg = context.jpegRepresentation(of: sourceImage, colorSpace: colorSpace!, options: [:])
-        //    let sourceURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame_source.jpg")!
-        //    do {
-        //      try jpeg?.write(to: sourceURL)
-        //    } catch {
-        //      print("error write to jpeg")
-        //    }
+        let context = CIContext(options: nil)
+        let colorSpace = sourceImage.colorSpace
+        let jpeg = context.jpegRepresentation(of: sourceImage, colorSpace: colorSpace!, options: [:])
+        let sourceURL = URL(string: "file:///Users/nghia/workspace/github.com/chnghia/Aperture/ExampleMac/screen_frame_source.jpg")!
+        do {
+          try jpeg?.write(to: sourceURL)
+        } catch {
+          print("error write to jpeg")
+        }
         
         let targetSize = NSSize(width:640, height:640)
         let resizedImage = resizeImg(sourceImage: sourceImage, targetSize: targetSize)!
         
-        //    let jpegResized = context.jpegRepresentation(of: resizedImage, colorSpace: colorSpace!, options: [:])
-        //    let resizedURL = URL(string: "file:///Users/nghia/workspace/vfa_proj/screen-recorder-oss/Aperture/ExampleMac/screen_frame_source_resized.jpg")!
-        //    do {
-        //      try jpegResized?.write(to: resizedURL)
-        //    } catch {
-        //      print("error write to jpeg")
-        //    }
+        let jpegResized = context.jpegRepresentation(of: resizedImage, colorSpace: colorSpace!, options: [:])
+        let resizedURL = URL(string: "file:///Users/nghia/workspace/github.com/chnghia/Aperture/ExampleMac/screen_frame_source_resized.jpg")!
+        do {
+          try jpegResized?.write(to: resizedURL)
+        } catch {
+          print("error write to jpeg")
+        }
         
         do {
             if let model: VNCoreMLModel = coreModel {
@@ -323,6 +314,7 @@ func recordEmotion() throws {
                     detectFaceByModel(request: request, sourceImage: sourceImage, resizedImage: resizedImage, originSize: originSize, error: error)
                 }
                 //log(label: "[d capture]", "start detect image ")
+                startTimes.append(NSDate().timeIntervalSince1970)
                 try faceSequenceHandler.perform([detectFaceRequest], on: resizedImage)
             }
         }
